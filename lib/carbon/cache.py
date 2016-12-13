@@ -15,6 +15,9 @@ limitations under the License."""
 import time
 from collections import deque
 from carbon.conf import settings
+from carbon.storage import getFilesystemPath, createWhisperFile
+from os.path import exists
+
 try:
     from collections import defaultdict
 except ImportError:
@@ -42,6 +45,9 @@ class _MetricCache(defaultdict):
 
   def store(self, metric, datapoint):
     self.size += 1
+    dbFilePath = getFilesystemPath(metric)
+    if (len(self[metric]) == 0 and not exists(dbFilePath)):
+      createWhisperFile(metric, dbFilePath)
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
