@@ -16,7 +16,7 @@ import os
 import re
 import whisper
 
-from os.path import join, exists, sep
+from os.path import join, exists, sep, dirname
 from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
 from carbon import log
@@ -31,6 +31,56 @@ def getFilesystemPath(metric):
   metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
   return join(settings.LOCAL_DATA_DIR, metric_path)
 
+def createWhisperFile(metric, dbFilePath):
+    archiveConfig = None
+    xFilesFactor, aggregationMethod = None, None
+
+    for schema in SCHEMAS:
+      if schema.matches(metric):
+        log.creates('new metric %s matched schema %s' % (metric, schema.name))
+        archiveConfig = [archive.getTuple() for archive in schema.archives]
+        break
+
+    for schema in AGGREGATION_SCHEMAS:
+      if schema.matches(metric):
+        log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
+        xFilesFactor, aggregationMethod = schema.archives
+        break
+
+    if not archiveConfig:
+      raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+
+    dbDir = dirname(dbFilePath)
+    try:
+        if not exists(dbDir):
+            os.makedirs(dbDir)
+    except OSError, e:
+        log.err("%s" % e)
+    log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
+                (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
+    whisper.create(
+        dbFilePath,
+        archiveConfig,
+        xFilesFactor,
+        aggregationMethod,
+        settings.WHISPER_SPARSE_CREATE,
+        settings.WHISPER_FALLOCATE_CREATE)
+
+def reloadStorageSchemas():
+  global SCHEMAS
+  try:
+    SCHEMAS = loadStorageSchemas()
+  except Exception:
+    log.msg("Failed to reload storage SCHEMAS")
+    log.err()
+
+def reloadAggregationSchemas():
+  global AGGREGATION_SCHEMAS
+  try:
+    AGGREGATION_SCHEMAS = loadAggregationSchemas()
+  except Exception:
+    log.msg("Failed to reload aggregation SCHEMAS")
+    log.err()
 
 class Schema:
   def test(self, metric):
@@ -194,3 +244,6 @@ def loadAggregationSchemas():
 defaultArchive = Archive(60, 60 * 24 * 7)  # default retention for unclassified data (7 days of minutely data)
 defaultSchema = DefaultSchema('default', [defaultArchive])
 defaultAggregation = DefaultSchema('default', (None, None))
+
+SCHEMAS = loadStorageSchemas()
+AGGREGATION_SCHEMAS = loadAggregationSchemas()

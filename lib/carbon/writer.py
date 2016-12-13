@@ -19,8 +19,8 @@ from os.path import exists, dirname
 import whisper
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas,\
-    loadAggregationSchemas
+from carbon.storage import getFilesystemPath, reloadStorageSchemas,\
+    reloadAggregationSchemas, createWhisperFile
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 from carbon.util import TokenBucket
@@ -34,9 +34,6 @@ try:
 except ImportError:
     log.msg("Couldn't import signal module")
 
-
-SCHEMAS = loadStorageSchemas()
-AGGREGATION_SCHEMAS = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
@@ -91,41 +88,9 @@ def writeCachedDataPoints():
       dataWritten = True
 
       if not dbFileExists:
-        archiveConfig = None
-        xFilesFactor, aggregationMethod = None, None
-
-        for schema in SCHEMAS:
-          if schema.matches(metric):
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            archiveConfig = [archive.getTuple() for archive in schema.archives]
-            break
-
-        for schema in AGGREGATION_SCHEMAS:
-          if schema.matches(metric):
-            log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
-            xFilesFactor, aggregationMethod = schema.archives
-            break
-
-        if not archiveConfig:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
-
-        dbDir = dirname(dbFilePath)
         try:
-            if not exists(dbDir):
-                os.makedirs(dbDir)
-        except OSError, e:
-            log.err("%s" % e)
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        try:
-            whisper.create(
-                dbFilePath,
-                archiveConfig,
-                xFilesFactor,
-                aggregationMethod,
-                settings.WHISPER_SPARSE_CREATE,
-                settings.WHISPER_FALLOCATE_CREATE)
-            instrumentation.increment('creates')
+          createWhisperFile(metric, dbFilePath)
+          instrumentation.increment('creates')
         except:
             log.err("Error creating %s" % (dbFilePath))
             continue
@@ -159,25 +124,6 @@ def writeForever():
     except Exception:
       log.err()
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
-
-
-def reloadStorageSchemas():
-  global SCHEMAS
-  try:
-    SCHEMAS = loadStorageSchemas()
-  except Exception:
-    log.msg("Failed to reload storage SCHEMAS")
-    log.err()
-
-
-def reloadAggregationSchemas():
-  global AGGREGATION_SCHEMAS
-  try:
-    AGGREGATION_SCHEMAS = loadAggregationSchemas()
-  except Exception:
-    log.msg("Failed to reload aggregation SCHEMAS")
-    log.err()
-
 
 def shutdownModifyUpdateSpeed():
     try:
