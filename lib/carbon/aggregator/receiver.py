@@ -1,4 +1,4 @@
-from carbon.instrumentation import increment
+from carbon.stats import increment
 from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
 from carbon.conf import settings

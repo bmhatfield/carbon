@@ -52,7 +52,7 @@ except ImportError:
 
 import carbon.protocols #satisfy import order requirements
 from carbon.conf import settings
-from carbon import log, events, instrumentation
+from carbon import log, events
 
 
 HOSTNAME = socket.gethostname().split('.')[0]

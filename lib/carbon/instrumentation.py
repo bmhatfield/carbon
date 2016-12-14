@@ -6,9 +6,8 @@ from resource import getrusage, RUSAGE_SELF
 from twisted.application.service import Service
 from twisted.internet.task import LoopingCall
 from carbon.conf import settings
+from carbon.stats import increment, statsSnapshot, clearStats
 
-
-stats = {}
 HOSTNAME = socket.gethostname().replace('.','_')
 PAGESIZE = os.sysconf('SC_PAGESIZE')
 rusage = getrusage(RUSAGE_SELF)
@@ -21,27 +20,6 @@ lastUsageTime = time.time()
 # TODO(chrismd) refactor the graphite metrics hierarchy to be cleaner,
 # more consistent, and make room for frontend metrics.
 #metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
-
-
-def increment(stat, increase=1):
-  try:
-    stats[stat] += increase
-  except KeyError:
-    stats[stat] = increase
-
-def max(stat, newval):
-  try:
-    if stats[stat] < newval:
-      stats[stat] = newval
-  except KeyError:
-    stats[stat] = newval
-
-def append(stat, value):
-  try:
-    stats[stat].append(value)
-  except KeyError:
-    stats[stat] = [value]
-
 
 def getCpuUsage():
   global lastUsage, lastUsageTime
@@ -71,8 +49,8 @@ def getMemUsage():
 
 def recordMetrics():
   global lastUsage
-  myStats = stats.copy()
-  stats.clear()
+  myStats = statsSnapshot()
+  clearStats()
 
   # cache metrics
   if settings.program == 'carbon-cache':

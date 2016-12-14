@@ -51,10 +51,10 @@ class MetricReceiver:
 
   def metricReceived(self, metric, datapoint):
     if BlackList and metric in BlackList:
-      instrumentation.increment('blacklistMatches')
+      stats.increment('blacklistMatches')
       return
     if WhiteList and metric not in WhiteList:
-      instrumentation.increment('whitelistRejects')
+      stats.increment('whitelistRejects')
       return
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
@@ -140,7 +140,7 @@ class CacheManagementHandler(Int32StringReceiver):
       result = dict(datapoints=datapoints)
       if settings.LOG_CACHE_HITS:
         log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
-      instrumentation.increment('cacheQueries')
+      stats.increment('cacheQueries')
 
     elif request['type'] == 'cache-query-bulk':
       datapointsByMetric = {}
@@ -153,8 +153,8 @@ class CacheManagementHandler(Int32StringReceiver):
       if settings.LOG_CACHE_HITS:
         log.query('[%s] cache query bulk for \"%d\" metrics returned %d values' %
             (self.peerAddr, len(metrics), sum([len(datapoints) for datapoints in datapointsByMetric.values()])))
-      instrumentation.increment('cacheBulkQueries')
-      instrumentation.append('cacheBulkQuerySize', len(metrics))
+      stats.increment('cacheBulkQueries')
+      stats.append('cacheBulkQuerySize', len(metrics))
 
     elif request['type'] == 'get-metadata':
       result = management.getMetadata(request['metric'], request['key'])
@@ -171,4 +171,4 @@ class CacheManagementHandler(Int32StringReceiver):
 
 # Avoid import circularities
 from carbon.cache import MetricCache
-from carbon import instrumentation
+from carbon import stats

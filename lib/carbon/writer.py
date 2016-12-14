@@ -22,7 +22,7 @@ from carbon.cache import MetricCache
 from carbon.storage import getFilesystemPath, reloadStorageSchemas,\
     reloadAggregationSchemas, createWhisperFile
 from carbon.conf import settings
-from carbon import log, events, instrumentation
+from carbon import log, events, stats
 from carbon.util import TokenBucket
 
 from twisted.internet import reactor
@@ -104,11 +104,11 @@ def writeCachedDataPoints():
       except Exception:
         log.msg("Error writing to %s" % (dbFilePath))
         log.err()
-        instrumentation.increment('errors')
+        stats.increment('errors')
       else:
         pointCount = len(datapoints)
-        instrumentation.increment('committedPoints', pointCount)
-        instrumentation.append('updateTimes', updateTime)
+        stats.increment('committedPoints', pointCount)
+        stats.append('updateTimes', updateTime)
         if settings.LOG_UPDATES:
           log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
 

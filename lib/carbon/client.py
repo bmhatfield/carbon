@@ -5,7 +5,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import log, events, state, instrumentation
+from carbon import log, events, state, stats
 
 try:
     import signal
@@ -54,7 +54,7 @@ class CarbonClientProtocol(Int32StringReceiver):
   def sendDatapoint(self, metric, datapoint):
     if self.paused:
       self.factory.enqueue(metric, datapoint)
-      instrumentation.increment(self.queuedUntilReady)
+      stats.increment(self.queuedUntilReady)
 
     elif self.factory.hasQueuedDatapoints():
       self.factory.enqueue(metric, datapoint)
@@ -65,7 +65,7 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
-      instrumentation.increment(self.sent, len(datapoints))
+      stats.increment(self.sent, len(datapoints))
       self.factory.checkQueue()
 
   def sendQueued(self):
@@ -159,18 +159,18 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queue.append((metric, datapoint))
 
   def sendDatapoint(self, metric, datapoint):
-    instrumentation.increment(self.attemptedRelays)
-    instrumentation.max(self.relayMaxQueueLength, self.queueSize)
+    stats.increment(self.attemptedRelays)
+    stats.max(self.relayMaxQueueLength, self.queueSize)
     queueSize = self.queueSize
     if queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(queueSize)
-      instrumentation.increment(self.fullQueueDrops)
+      stats.increment(self.fullQueueDrops)
     elif self.connectedProtocol:
       self.connectedProtocol.sendDatapoint(metric, datapoint)
     else:
       self.enqueue(metric, datapoint)
-      instrumentation.increment(self.queuedUntilConnected)
+      stats.increment(self.queuedUntilConnected)
 
   def startedConnecting(self, connector):
     log.clients("%s::startedConnecting (%s:%d)" % (self, connector.host, connector.port))
