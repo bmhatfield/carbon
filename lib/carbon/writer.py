@@ -90,7 +90,6 @@ def writeCachedDataPoints():
       if not dbFileExists:
         try:
           createWhisperFile(metric, dbFilePath)
-          instrumentation.increment('creates')
         except:
             log.err("Error creating %s" % (dbFilePath))
             continue

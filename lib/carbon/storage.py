@@ -19,7 +19,7 @@ import whisper
 from os.path import join, exists, sep, dirname
 from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
-from carbon import log
+from carbon import log, stats
 from carbon.exceptions import CarbonConfigException
 
 STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
@@ -65,6 +65,7 @@ def createWhisperFile(metric, dbFilePath):
         aggregationMethod,
         settings.WHISPER_SPARSE_CREATE,
         settings.WHISPER_FALLOCATE_CREATE)
+    stats.increment('creates')
 
 def reloadStorageSchemas():
   global SCHEMAS
