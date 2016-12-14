@@ -46,8 +46,9 @@ class _MetricCache(defaultdict):
   def store(self, metric, datapoint):
     self.size += 1
     dbFilePath = getFilesystemPath(metric)
-    if (len(self[metric]) == 0 and not exists(dbFilePath)):
-      createWhisperFile(metric, dbFilePath)
+    if settings.CACHE_CREATE_WHISPER_FILES:
+      if (len(self[metric]) == 0 and not exists(dbFilePath)):
+        createWhisperFile(metric, dbFilePath)
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
