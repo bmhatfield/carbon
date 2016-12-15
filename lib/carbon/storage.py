@@ -36,8 +36,8 @@ def getFilesystemPath(metric):
   metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
   return join(settings.LOCAL_DATA_DIR, metric_path)
 
-def queueWhisperCreate(metric, dbFilePath):
-  whisperCreates.append([metric, dbFilePath])
+def queueWhisperCreate(metric):
+  whisperCreates.append(metric)
 
 def createWhisperFile(metric, dbFilePath):
     archiveConfig = None
@@ -261,7 +261,8 @@ AGGREGATION_SCHEMAS = loadAggregationSchemas()
 def createQueuedWhisperFiles():
   while True:
     if len(whisperCreates) > 0:
-      metric, dbFilePath = whisperCreates.pop()
+      metric = whisperCreates.pop()
+      dbFilePath = getFilesystemPath(metric)
       createWhisperFile(metric, dbFilePath)
     else:
       break

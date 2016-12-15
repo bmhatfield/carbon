@@ -15,7 +15,7 @@ limitations under the License."""
 import time
 from collections import deque
 from carbon.conf import settings
-from carbon.storage import getFilesystemPath, queueWhisperCreate
+from carbon.storage import queueWhisperCreate
 from os.path import exists
 
 try:
@@ -45,10 +45,9 @@ class _MetricCache(defaultdict):
 
   def store(self, metric, datapoint):
     self.size += 1
-    dbFilePath = getFilesystemPath(metric)
     if settings.CACHE_CREATE_WHISPER_FILES:
       if (len(self[metric]) == 0):
-        queueWhisperCreate(metric, dbFilePath)
+        queueWhisperCreate(metric)
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
