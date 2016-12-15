@@ -130,6 +130,11 @@ def createCacheService(config):
     service = WriterService()
     service.setServiceParent(root_service)
 
+    from carbon.storage import WhisperFileCreationService
+
+    whService = WhisperFileCreationService()
+    whService.setServiceParent(root_service)
+
     if settings.USE_FLOW_CONTROL:
       events.cacheFull.addHandler(events.pauseReceivingMetrics)
       events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)

@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os
+import time
 import re
 import whisper
 
@@ -21,15 +22,22 @@ from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
 from carbon import log, stats
 from carbon.exceptions import CarbonConfigException
+from collections import deque
+from twisted.internet import reactor
+from twisted.application.service import Service
 
 STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
+whisperCreates = deque()
 
 def getFilesystemPath(metric):
   metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
   return join(settings.LOCAL_DATA_DIR, metric_path)
+
+def queueWhisperCreate(metric, dbFilePath):
+  whisperCreates.append([metric, dbFilePath])
 
 def createWhisperFile(metric, dbFilePath):
     archiveConfig = None
@@ -50,22 +58,23 @@ def createWhisperFile(metric, dbFilePath):
     if not archiveConfig:
       raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
 
-    dbDir = dirname(dbFilePath)
-    try:
+    if not exists(dbFilePath):
+      dbDir = dirname(dbFilePath)
+      try:
         if not exists(dbDir):
-            os.makedirs(dbDir)
-    except OSError, e:
+          os.makedirs(dbDir)
+      except OSError, e:
         log.err("%s" % e)
-    log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-    whisper.create(
-        dbFilePath,
-        archiveConfig,
-        xFilesFactor,
-        aggregationMethod,
-        settings.WHISPER_SPARSE_CREATE,
-        settings.WHISPER_FALLOCATE_CREATE)
-    stats.increment('creates')
+      log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
+              (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
+      whisper.create(
+          dbFilePath,
+          archiveConfig,
+          xFilesFactor,
+          aggregationMethod,
+          settings.WHISPER_SPARSE_CREATE,
+          settings.WHISPER_FALLOCATE_CREATE)
+      stats.increment('creates')
 
 def reloadStorageSchemas():
   global SCHEMAS
@@ -248,3 +257,31 @@ defaultAggregation = DefaultSchema('default', (None, None))
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
+
+def createQueuedWhisperFiles():
+  while True:
+    if len(whisperCreates) > 0:
+      metric, dbFilePath = whisperCreates.pop()
+      createWhisperFile(metric, dbFilePath)
+    else:
+      break
+
+def createForever():
+  while reactor.running:
+    try:
+      createQueuedWhisperFiles()
+    except Exception:
+      log.err()
+    time.sleep(1)  # The creator thread only sleeps when the queue is empty or an error occurs
+
+class WhisperFileCreationService(Service):
+
+    def startService(self):
+      if 'signal' in globals().keys():
+        log.msg("Installing SIG_IGN for SIGHUP")
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+      reactor.callInThread(createForever)
+      Service.startService(self)
+
+    def stopService(self):
+      Service.stopService(self)
