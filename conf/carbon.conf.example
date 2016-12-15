@@ -115,7 +115,7 @@ CACHE_QUERY_PORT = 7002
 # Set to True to enable the cache to proactively create whisper files
 # for metrics that are received but don't currently exist in the cache
 # and also do not already have an existing whisper file. Defaults to False.
-# CACHE_CREATE_WHISPER_FILES = True
+# CACHE_PRECREATE_WHISPER_FILES = True
 
 # Set this to False to drop datapoints received after the cache
 # reaches MAX_CACHE_SIZE. If this is True (the default) then sockets
