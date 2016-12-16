@@ -46,7 +46,7 @@ class _MetricCache(defaultdict):
   def store(self, metric, datapoint):
     self.size += 1
     if settings.CACHE_PRECREATE_WHISPER_FILES:
-      if (len(self[metric]) == 0):
+      if not metric in self:
         queueWhisperCreate(metric)
     self[metric].append(datapoint)
     if self.isFull():
