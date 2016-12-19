@@ -75,6 +75,8 @@ def createWhisperFile(metric, dbFilePath):
           settings.WHISPER_SPARSE_CREATE,
           settings.WHISPER_FALLOCATE_CREATE)
       stats.increment('creates')
+    else:
+      stats.increment('skippedCreates')
 
 def reloadStorageSchemas():
   global SCHEMAS
